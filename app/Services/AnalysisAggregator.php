@@ -25,6 +25,27 @@ class AnalysisAggregator
                 || (bool) $chunk['has_get_reservations_endpoint'];
             $result['supports_webhooks'] = $result['supports_webhooks']
                 || (bool) $chunk['supports_webhooks'];
+            $result['credentials_available'] = $result['credentials_available']
+                || (bool) $chunk['credentials_available'];
+            $result['credential_types'] = $this->mergeStrings(
+                $result['credential_types'],
+                $chunk['credential_types']
+            );
+            if ($result['pms_name'] === '' && $chunk['pms_name'] !== '') {
+                $result['pms_name'] = $chunk['pms_name'];
+            }
+            $result['get_reservations_endpoints'] = $this->mergeStrings(
+                $result['get_reservations_endpoints'],
+                $chunk['get_reservations_endpoints']
+            );
+            $result['get_reservations_endpoint_names'] = $this->mergeStrings(
+                $result['get_reservations_endpoint_names'],
+                $chunk['get_reservations_endpoint_names']
+            );
+            $result['get_reservations_available_filters'] = $this->mergeStrings(
+                $result['get_reservations_available_filters'],
+                $chunk['get_reservations_available_filters']
+            );
 
             foreach ($result['fields'] as $key => $field) {
                 $incoming = $chunk['fields'][$key] ?? $field;
@@ -32,6 +53,19 @@ class AnalysisAggregator
                 $result['fields'][$key]['confidence'] = max($field['confidence'], $incoming['confidence']);
                 $result['fields'][$key]['source_fields'] = $this->mergeStrings(
                     $field['source_fields'],
+                    $incoming['source_fields']
+                );
+            }
+
+            foreach ($result['get_reservations_filters'] as $key => $filter) {
+                $incoming = $chunk['get_reservations_filters'][$key] ?? $filter;
+                $result['get_reservations_filters'][$key]['available'] = $filter['available'] || $incoming['available'];
+                $result['get_reservations_filters'][$key]['confidence'] = max(
+                    $filter['confidence'],
+                    $incoming['confidence']
+                );
+                $result['get_reservations_filters'][$key]['source_fields'] = $this->mergeStrings(
+                    $filter['source_fields'],
                     $incoming['source_fields']
                 );
             }
@@ -65,15 +99,50 @@ class AnalysisAggregator
             'has_get_reservations_endpoint',
             false
         );
+        $chunk['get_reservations_endpoints'] = $this->normalizeStrings(
+            Arr::get($chunk, 'get_reservations_endpoints', [])
+        );
+        $chunk['pms_name'] = trim((string) Arr::get($chunk, 'pms_name', ''));
+        $chunk['get_reservations_endpoint_names'] = $this->normalizeStrings(
+            Arr::get($chunk, 'get_reservations_endpoint_names', [])
+        );
         $chunk['supports_webhooks'] = (bool) Arr::get($chunk, 'supports_webhooks', false);
+        $chunk['credentials_available'] = (bool) Arr::get(
+            $chunk,
+            'credentials_available',
+            false
+        );
         $fields = Arr::get($chunk, 'fields', []);
         $chunk['fields'] = is_array($fields) ? $fields : [];
+        $chunk['get_reservations_filters'] = Arr::get($chunk, 'get_reservations_filters', []);
+        $chunk['get_reservations_filters'] = is_array($chunk['get_reservations_filters'])
+            ? $chunk['get_reservations_filters']
+            : [];
+        $chunk['credential_types'] = $this->normalizeStrings(
+            Arr::get($chunk, 'credential_types', [])
+        );
+        $chunk['get_reservations_available_filters'] = $this->normalizeStrings(
+            Arr::get($chunk, 'get_reservations_available_filters', [])
+        );
         $chunk['reservation_statuses'] = Arr::get($chunk, 'reservation_statuses', []);
         $chunk['notes'] = Arr::get($chunk, 'notes', []);
 
         foreach ($defaults['fields'] as $key => $fieldDefaults) {
             $incoming = Arr::get($chunk, "fields.{$key}", []);
             $chunk['fields'][$key] = [
+                'available' => (bool) Arr::get($incoming, 'available', false),
+                'source_fields' => $this->normalizeStrings(
+                    Arr::get($incoming, 'source_fields', [])
+                ),
+                'confidence' => $this->normalizeConfidence(
+                    Arr::get($incoming, 'confidence', 0)
+                ),
+            ];
+        }
+
+        foreach ($defaults['get_reservations_filters'] as $key => $filterDefaults) {
+            $incoming = Arr::get($chunk, "get_reservations_filters.{$key}", []);
+            $chunk['get_reservations_filters'][$key] = [
                 'available' => (bool) Arr::get($incoming, 'available', false),
                 'source_fields' => $this->normalizeStrings(
                     Arr::get($incoming, 'source_fields', [])
@@ -97,13 +166,13 @@ class AnalysisAggregator
     {
         $fields = [
             'checkout_date',
+            'check_in_date',
             'first_name',
             'last_name',
             'country',
             'mobile_phone',
             'email',
             'reservation_status',
-            'property_name',
             'special_package',
         ];
 
@@ -119,7 +188,30 @@ class AnalysisAggregator
 
         return [
             'has_get_reservations_endpoint' => false,
+            'pms_name' => '',
+            'get_reservations_endpoint_names' => [],
+            'get_reservations_endpoints' => [],
             'supports_webhooks' => false,
+            'credentials_available' => false,
+            'credential_types' => [],
+            'get_reservations_filters' => [
+                'check_in_date' => [
+                    'available' => false,
+                    'source_fields' => [],
+                    'confidence' => 0.0,
+                ],
+                'check_out_date' => [
+                    'available' => false,
+                    'source_fields' => [],
+                    'confidence' => 0.0,
+                ],
+                'status' => [
+                    'available' => false,
+                    'source_fields' => [],
+                    'confidence' => 0.0,
+                ],
+            ],
+            'get_reservations_available_filters' => [],
             'fields' => $defaults,
             'reservation_statuses' => [],
             'notes' => [],

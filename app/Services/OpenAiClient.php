@@ -70,6 +70,45 @@ class OpenAiClient
         return $this->decodeJson($content);
     }
 
+    public function generateText(string $prompt, string $content, string $model): string
+    {
+        $apiKey = Config::get('pms_analyzer.openai.api_key');
+
+        if (!$apiKey) {
+            throw new \RuntimeException('OPENAI_API_KEY is not configured.');
+        }
+
+        $payload = [
+            'model' => $model,
+            'temperature' => 0.2,
+            'input' => [
+                ['role' => 'system', 'content' => $prompt],
+                ['role' => 'user', 'content' => $content],
+            ],
+        ];
+
+        try {
+            $response = $this->client->post('responses', [
+                'headers' => [
+                    'Authorization' => 'Bearer '.$apiKey,
+                    'Content-Type' => 'application/json',
+                ],
+                'json' => $payload,
+            ]);
+        } catch (GuzzleException $exception) {
+            throw new \RuntimeException('OpenAI request failed: '.$exception->getMessage(), 0, $exception);
+        }
+
+        $data = json_decode((string) $response->getBody(), true);
+        $responseText = $this->extractContent($data);
+
+        if (!is_string($responseText)) {
+            throw new \RuntimeException('OpenAI response missing content.');
+        }
+
+        return trim($responseText);
+    }
+
     /**
      * @return array<string, mixed>
      */

@@ -35,4 +35,11 @@ return [
         ],
     ],
 
+    'youtrack' => [
+        'base_uri' => env('YOUTRACK_BASE_URI'),
+        'token' => env('YOUTRACK_TOKEN'),
+        'project_id' => env('YOUTRACK_PROJECT_ID'),
+        'project_key' => env('YOUTRACK_PROJECT_KEY'),
+    ],
+
 ];

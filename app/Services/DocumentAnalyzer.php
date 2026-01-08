@@ -14,7 +14,8 @@ class DocumentAnalyzer
         private readonly PdfTextExtractor $extractor,
         private readonly PromptManager $promptManager,
         private readonly OpenAiClient $openAiClient,
-        private readonly AnalysisAggregator $aggregator
+        private readonly AnalysisAggregator $aggregator,
+        private readonly CredentialScanner $credentialScanner
     ) {
     }
 
@@ -29,6 +30,7 @@ class DocumentAnalyzer
 
         try {
             $text = $this->getDocumentText($document);
+            $credentials = $this->credentialScanner->scan($text);
             $chunker = new TextChunker(
                 (int) Config::get('pms_analyzer.chunk_max_chars', 6000),
                 (int) Config::get('pms_analyzer.chunk_overlap_chars', 300)
@@ -42,6 +44,7 @@ class DocumentAnalyzer
 
             if (count($chunks) === 0) {
                 $final = $this->aggregator->aggregate([]);
+                $final['credentials'] = $credentials;
 
                 $analysis->update([
                     'status' => 'completed',
@@ -73,6 +76,7 @@ class DocumentAnalyzer
             }
 
             $final = $this->aggregator->aggregate($chunkResults);
+            $final['credentials'] = $credentials;
 
             $analysis->update([
                 'status' => 'completed',

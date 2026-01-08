@@ -5,7 +5,10 @@ namespace App\Http\Controllers;
 use App\Jobs\AnalyzePmsDocument;
 use App\Models\PmsAnalysis;
 use App\Models\PmsDocument;
+use App\Services\AnalysisPdfGenerator;
 use App\Services\PromptManager;
+use App\Services\TicketDescriptionGenerator;
+use App\Services\YouTrackClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
 use Illuminate\Validation\Rule;
@@ -103,6 +106,82 @@ class PmsDocumentController extends Controller
         return response()
             ->json($payload)
             ->header('Content-Disposition', 'attachment; filename="'.$filename.'"');
+    }
+
+    public function downloadPdf(PmsAnalysis $analysis, AnalysisPdfGenerator $generator)
+    {
+        $analysis->loadMissing('document');
+        $payload = $analysis->result ?? [];
+        $pdf = $generator->generate($analysis, $analysis->document, $payload);
+        $filename = 'pms-analysis-'.$analysis->id.'.pdf';
+
+        return response($pdf, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$filename.'"',
+        ]);
+    }
+
+    public function generateYouTrackDescription(
+        Request $request,
+        PmsAnalysis $analysis,
+        TicketDescriptionGenerator $generator
+    ) {
+        try {
+            $analysis->loadMissing('document');
+
+            $summary = $request->input('summary');
+            $description = $generator->generate($analysis, is_string($summary) ? $summary : null);
+
+            return response()->json([
+                'description' => $description,
+            ]);
+        } catch (\Throwable $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
+    }
+
+    public function createYouTrackIssue(Request $request, PmsAnalysis $analysis, YouTrackClient $client)
+    {
+        try {
+            $analysis->loadMissing('document');
+
+            $validated = $request->validate([
+                'summary' => ['required', 'string', 'max:255'],
+                'description' => ['nullable', 'string'],
+                'include_result' => ['nullable', 'boolean'],
+            ]);
+
+            $description = (string) ($validated['description'] ?? '');
+            if ($request->boolean('include_result')) {
+                $result = $analysis->result ?? [];
+                if (!is_array($result)) {
+                    $result = [];
+                }
+                $json = json_encode($result, JSON_PRETTY_PRINT);
+                if ($json === false) {
+                    $json = 'Unable to encode analysis result.';
+                }
+                $description = trim($description);
+                $description .= ($description === '' ? '' : "\n\n");
+                $description .= "PMS result:\n".$json;
+            }
+
+            $issue = $client->createIssue($validated['summary'], $description);
+            $issueId = $issue['idReadable'] ?? $issue['id'] ?? null;
+            $issueUrl = $issueId ? $client->issueUrl((string) $issueId) : null;
+
+            return response()->json([
+                'issue_id' => $issue['id'] ?? null,
+                'issue_idReadable' => $issue['idReadable'] ?? null,
+                'issue_url' => $issueUrl,
+            ]);
+        } catch (\Throwable $exception) {
+            return response()->json([
+                'message' => $exception->getMessage(),
+            ], 422);
+        }
     }
 
     /**

@@ -9,3 +9,9 @@ Route::get('/documents/{document}', [PmsDocumentController::class, 'show'])->nam
 Route::post('/documents/{document}/analyze', [PmsDocumentController::class, 'analyze'])->name('documents.analyze');
 Route::get('/analyses/{analysis}/download', [PmsDocumentController::class, 'download'])
     ->name('analyses.download');
+Route::get('/analyses/{analysis}/download/pdf', [PmsDocumentController::class, 'downloadPdf'])
+    ->name('analyses.download.pdf');
+Route::post('/analyses/{analysis}/youtrack/description', [PmsDocumentController::class, 'generateYouTrackDescription'])
+    ->name('analyses.youtrack.description');
+Route::post('/analyses/{analysis}/youtrack', [PmsDocumentController::class, 'createYouTrackIssue'])
+    ->name('analyses.youtrack.create');
