@@ -1,5 +1,5 @@
 <script setup>
-import { Link, useForm } from '@inertiajs/vue3';
+import { Link, router, useForm } from '@inertiajs/vue3';
 import AppLayout from '@/Layouts/AppLayout.vue';
 
 const props = defineProps({
@@ -37,6 +37,13 @@ const onFileChange = (event) => {
     const [file] = event.target.files;
     form.document = file ?? null;
 };
+
+const deleteDocument = (doc) => {
+    if (!doc?.id) return;
+    const confirmed = window.confirm(`Delete "${doc.original_name}"?`);
+    if (!confirmed) return;
+    router.delete(`/documents/${doc.id}`);
+};
 </script>
 
 <template>
@@ -45,7 +52,7 @@ const onFileChange = (event) => {
             <section
                 class="rounded-3xl border border-slate-900/10 bg-white/70 p-8 shadow-[0_20px_50px_-35px_rgba(15,23,42,0.35)] backdrop-blur"
             >
-                <p class="text-xs font-semibold uppercase tracking-[0.35em] text-emerald-700">
+                <p class="text-xs font-semibold uppercase tracking-[0.35em] text-sky-700">
                     Upload &amp; Analyze
                 </p>
                 <h2 class="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
@@ -58,7 +65,7 @@ const onFileChange = (event) => {
 
                 <form class="mt-6 grid gap-4" @submit.prevent="submit">
                     <label
-                        class="flex cursor-pointer flex-col gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-6 text-sm text-slate-600 transition hover:border-emerald-400 hover:text-slate-900"
+                        class="flex cursor-pointer flex-col gap-2 rounded-2xl border border-dashed border-slate-300 bg-slate-50/80 px-5 py-6 text-sm text-slate-600 transition hover:border-sky-400 hover:text-slate-900"
                     >
                         <span class="text-sm font-medium text-slate-700">
                             PDF file
@@ -96,7 +103,7 @@ const onFileChange = (event) => {
 
                     <button
                         type="submit"
-                        class="inline-flex items-center justify-between rounded-2xl bg-emerald-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-emerald-600/30 transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:bg-slate-300"
+                        class="inline-flex items-center justify-between rounded-2xl bg-sky-600 px-5 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-600/30 transition hover:bg-sky-500 disabled:cursor-not-allowed disabled:bg-slate-300"
                         :disabled="form.processing || !form.document"
                     >
                         <span>Start analysis</span>
@@ -132,12 +139,21 @@ const onFileChange = (event) => {
                                     {{ doc.latest_analysis.prompt_version }}
                                 </p>
                             </div>
-                            <Link
-                                :href="`/documents/${doc.id}`"
-                                class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
-                            >
-                                View
-                            </Link>
+                            <div class="flex items-center gap-2">
+                                <Link
+                                    :href="`/documents/${doc.id}`"
+                                    class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-700"
+                                >
+                                    View
+                                </Link>
+                                <button
+                                    type="button"
+                                    class="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-600 hover:border-rose-400 hover:text-rose-700"
+                                    @click="deleteDocument(doc)"
+                                >
+                                    Delete
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>

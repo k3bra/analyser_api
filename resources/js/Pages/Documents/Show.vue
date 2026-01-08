@@ -110,7 +110,7 @@ const defaultTicketSummary = computed(() => {
     if (pmsName) {
         return `PMS analysis: ${pmsName}`;
     }
-    return `PMS analysis: ${props.document.original_name}`;
+    return 'PMS integration';
 });
 const pmsResultJson = computed(() =>
     result.value ? JSON.stringify(result.value, null, 2) : ''
@@ -238,7 +238,7 @@ const createYouTrackTicket = async () => {
             <div class="flex items-center gap-3">
                 <Link
                     href="/"
-                    class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+                    class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-700"
                 >
                     Back to uploads
                 </Link>
@@ -252,13 +252,13 @@ const createYouTrackTicket = async () => {
                 <a
                     v-if="analysis?.result"
                     :href="`/analyses/${analysis.id}/download/pdf`"
-                    class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+                    class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-700"
                 >
                     Download PDF
                 </a>
                 <button
                     type="button"
-                    class="rounded-full bg-amber-500 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-amber-500/30 hover:bg-amber-400"
+                    class="rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-600/30 hover:bg-sky-500"
                     :disabled="!analysis?.result"
                     @click="openTicketModal"
                 >
@@ -299,7 +299,7 @@ const createYouTrackTicket = async () => {
                         </label>
                         <button
                             type="submit"
-                            class="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/30"
+                        class="rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-600/30"
                             :disabled="form.processing"
                         >
                             Re-run
@@ -307,7 +307,7 @@ const createYouTrackTicket = async () => {
                     </form>
                     <Link
                         href="/"
-                        class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+                        class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-700"
                     >
                         Back to home
                     </Link>
@@ -321,7 +321,7 @@ const createYouTrackTicket = async () => {
                 </div>
                 <div class="mt-2 h-2 w-full rounded-full bg-slate-200">
                     <div
-                        class="h-2 rounded-full bg-emerald-500 transition-all"
+                        class="h-2 rounded-full bg-sky-500 transition-all"
                         :style="{ width: `${analysis.progress}%` }"
                     ></div>
                 </div>
@@ -381,13 +381,19 @@ const createYouTrackTicket = async () => {
                     <div v-if="result" class="mt-4 space-y-3">
                         <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
                             <p class="text-sm text-slate-700">Get Reservations endpoint</p>
-                            <span class="text-sm font-semibold text-slate-900">
+                            <span
+                                class="text-sm font-semibold"
+                                :class="result.has_get_reservations_endpoint ? 'text-emerald-600' : 'text-rose-600'"
+                            >
                                 {{ result.has_get_reservations_endpoint ? 'Yes' : 'No' }}
                             </span>
                         </div>
                         <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
                             <p class="text-sm text-slate-700">Webhook support</p>
-                            <span class="text-sm font-semibold text-slate-900">
+                            <span
+                                class="text-sm font-semibold"
+                                :class="result.supports_webhooks ? 'text-emerald-600' : 'text-rose-600'"
+                            >
                                 {{ result.supports_webhooks ? 'Yes' : 'No' }}
                             </span>
                         </div>
@@ -444,7 +450,7 @@ const createYouTrackTicket = async () => {
                         <span
                             v-for="status in result.reservation_statuses"
                             :key="status"
-                            class="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800"
+                            class="rounded-full bg-sky-100 px-3 py-1 text-xs font-semibold text-sky-800"
                         >
                             {{ status }}
                         </span>
@@ -462,7 +468,7 @@ const createYouTrackTicket = async () => {
                         <button
                             v-if="credentials.length && canShowRawCredentials"
                             type="button"
-                            class="rounded-full border border-slate-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-600 hover:border-emerald-400 hover:text-emerald-700"
+                            class="rounded-full border border-slate-200 px-3 py-1 text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-slate-600 hover:border-sky-400 hover:text-sky-700"
                             @click="showRawCredentials = !showRawCredentials"
                         >
                             {{ showRawCredentials ? 'Hide values' : 'Show values' }}
@@ -541,14 +547,14 @@ const createYouTrackTicket = async () => {
                     <a
                         v-if="entry.result"
                         :href="`/analyses/${entry.id}/download`"
-                        class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+                        class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-700"
                     >
                         JSON
                     </a>
                     <a
                         v-if="entry.result"
                         :href="`/analyses/${entry.id}/download/pdf`"
-                        class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+                        class="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-700"
                     >
                         PDF
                     </a>
@@ -607,13 +613,13 @@ const createYouTrackTicket = async () => {
                             <input
                                 v-model="ticketForm.include_result"
                                 type="checkbox"
-                                class="h-4 w-4 rounded border-slate-300 text-emerald-600"
+                                class="h-4 w-4 rounded border-slate-300 text-sky-600"
                             />
                             Include PMS result in ticket
                         </label>
                         <button
                             type="button"
-                            class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-emerald-400 hover:text-emerald-700"
+                            class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-700"
                             :disabled="ticketState.generating"
                             @click="generateTicketDescription"
                         >
@@ -631,12 +637,12 @@ const createYouTrackTicket = async () => {
                     <p v-if="ticketState.error" class="text-sm text-rose-600">
                         {{ ticketState.error }}
                     </p>
-                    <div v-if="ticketIssue" class="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                    <div v-if="ticketIssue" class="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-700">
                         <p>{{ ticketState.success }}</p>
                         <a
                             v-if="ticketIssue.issue_url"
                             :href="ticketIssue.issue_url"
-                            class="mt-2 inline-flex text-xs font-semibold text-emerald-700 underline"
+                            class="mt-2 inline-flex text-xs font-semibold text-sky-700 underline"
                             target="_blank"
                             rel="noreferrer"
                         >
@@ -654,7 +660,7 @@ const createYouTrackTicket = async () => {
                         </button>
                         <button
                             type="button"
-                            class="rounded-full bg-emerald-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-emerald-600/30"
+                            class="rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-600/30"
                             :disabled="ticketState.submitting"
                             @click="createYouTrackTicket"
                         >

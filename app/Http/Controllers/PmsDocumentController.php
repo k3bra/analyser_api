@@ -11,6 +11,7 @@ use App\Services\TicketDescriptionGenerator;
 use App\Services\YouTrackClient;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Config;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
@@ -119,6 +120,21 @@ class PmsDocumentController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$filename.'"',
         ]);
+    }
+
+    public function destroy(PmsDocument $document)
+    {
+        $disk = $document->storage_disk;
+        if ($document->storage_path) {
+            Storage::disk($disk)->delete($document->storage_path);
+        }
+        if ($document->extracted_text_path) {
+            Storage::disk($disk)->delete($document->extracted_text_path);
+        }
+
+        $document->delete();
+
+        return redirect()->route('documents.index');
     }
 
     public function generateYouTrackDescription(
