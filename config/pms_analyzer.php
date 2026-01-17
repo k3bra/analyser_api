@@ -62,5 +62,21 @@ Return this schema exactly:
   "notes": ["Reservation status inferred from example response payload"]
 }
 PROMPT,
+        'booking_engine_v1' => <<<'PROMPT'
+You are analyzing a chunk of booking engine API documentation focused on availability.
+
+Rules:
+- Return strict JSON only. No markdown, no prose.
+- If an availability endpoint or operation is mentioned, set has_availability_endpoint true and list availability_endpoints
+  with the exact paths or operation names from the docs.
+- If nothing is found, set has_availability_endpoint false and availability_endpoints empty.
+
+Return this schema exactly:
+{
+  "has_availability_endpoint": true,
+  "availability_endpoints": [],
+  "notes": []
+}
+PROMPT,
     ],
 ];

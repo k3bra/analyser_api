@@ -17,7 +17,7 @@
                         DocuSnitch
                     </p>
                     <h1 class="text-2xl font-semibold tracking-tight">
-                        A snitch for PMS API docs
+                        A snitch for API docs
                     </h1>
                 </div>
             </div>

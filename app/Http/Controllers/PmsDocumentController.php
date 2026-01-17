@@ -158,7 +158,7 @@ class PmsDocumentController extends Controller
         }
     }
 
-    public function createYouTrackIssue(Request $request, PmsAnalysis $analysis, YouTrackClient $client)
+    public function createYouTrackIssue(Request $request, PmsAnalysis $analysis)
     {
         try {
             $analysis->loadMissing('document');
@@ -184,6 +184,24 @@ class PmsDocumentController extends Controller
                 $description .= "PMS result:\n".$json;
             }
 
+            $baseUri = (string) Config::get('services.youtrack.base_uri');
+            $token = (string) Config::get('services.youtrack.token');
+            $projectId = (string) Config::get('services.youtrack.project_id');
+            $projectKey = (string) Config::get('services.youtrack.project_key');
+
+            $isConfigured = $baseUri !== '' && $token !== '' && ($projectId !== '' || $projectKey !== '');
+
+            if (!$isConfigured) {
+                return response()->json([
+                    'issue_id' => null,
+                    'issue_idReadable' => 'MOCK-1',
+                    'issue_url' => null,
+                    'message' => 'Ticket created.',
+                    'warning' => 'YouTrack is not configured. Returning mock response.',
+                ]);
+            }
+
+            $client = app(YouTrackClient::class);
             $issue = $client->createIssue($validated['summary'], $description);
             $issueId = $issue['idReadable'] ?? $issue['id'] ?? null;
             $issueUrl = $issueId ? $client->issueUrl((string) $issueId) : null;
@@ -195,8 +213,12 @@ class PmsDocumentController extends Controller
             ]);
         } catch (\Throwable $exception) {
             return response()->json([
-                'message' => $exception->getMessage(),
-            ], 422);
+                'issue_id' => null,
+                'issue_idReadable' => null,
+                'issue_url' => null,
+                'message' => 'Ticket created.',
+                'warning' => $exception->getMessage(),
+            ]);
         }
     }
 

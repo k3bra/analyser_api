@@ -34,6 +34,12 @@ class AnalysisAggregator
             if ($result['pms_name'] === '' && $chunk['pms_name'] !== '') {
                 $result['pms_name'] = $chunk['pms_name'];
             }
+            $result['has_availability_endpoint'] = $result['has_availability_endpoint']
+                || (bool) $chunk['has_availability_endpoint'];
+            $result['availability_endpoints'] = $this->mergeStrings(
+                $result['availability_endpoints'],
+                $chunk['availability_endpoints']
+            );
             $result['get_reservations_endpoints'] = $this->mergeStrings(
                 $result['get_reservations_endpoints'],
                 $chunk['get_reservations_endpoints']
@@ -103,6 +109,14 @@ class AnalysisAggregator
             Arr::get($chunk, 'get_reservations_endpoints', [])
         );
         $chunk['pms_name'] = trim((string) Arr::get($chunk, 'pms_name', ''));
+        $chunk['has_availability_endpoint'] = (bool) Arr::get(
+            $chunk,
+            'has_availability_endpoint',
+            false
+        );
+        $chunk['availability_endpoints'] = $this->normalizeStrings(
+            Arr::get($chunk, 'availability_endpoints', [])
+        );
         $chunk['get_reservations_endpoint_names'] = $this->normalizeStrings(
             Arr::get($chunk, 'get_reservations_endpoint_names', [])
         );
@@ -189,6 +203,8 @@ class AnalysisAggregator
         return [
             'has_get_reservations_endpoint' => false,
             'pms_name' => '',
+            'has_availability_endpoint' => false,
+            'availability_endpoints' => [],
             'get_reservations_endpoint_names' => [],
             'get_reservations_endpoints' => [],
             'supports_webhooks' => false,

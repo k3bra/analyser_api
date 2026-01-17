@@ -35,11 +35,36 @@ const form = useForm({
     model: props.defaultModel,
 });
 
+const bookingPromptVersions = computed(() =>
+    props.promptVersions.filter((version) => version.startsWith('booking_engine'))
+);
+const pmsPromptVersions = computed(() =>
+    props.promptVersions.filter((version) => !version.startsWith('booking_engine'))
+);
+const hasBookingTab = computed(() => bookingPromptVersions.value.length > 0);
+const activeTab = ref('pms');
+const activePromptVersions = computed(() =>
+    activeTab.value === 'booking' ? bookingPromptVersions.value : pmsPromptVersions.value
+);
+const activeAnalysis = computed(() => {
+    const versions = new Set(activePromptVersions.value);
+    if (versions.size === 0) {
+        return null;
+    }
+    return (props.analyses ?? []).find((entry) => versions.has(entry.prompt_version)) ?? null;
+});
+const analysesForTab = computed(() => {
+    const versions = new Set(activePromptVersions.value);
+    return (props.analyses ?? []).filter((entry) => versions.has(entry.prompt_version));
+});
+const isBookingTab = computed(() => activeTab.value === 'booking');
+const isPmsTab = computed(() => activeTab.value === 'pms');
+
 const rerun = () => {
     form.post(`/documents/${props.document.id}/analyze`);
 };
 
-const result = computed(() => props.analysis?.result ?? null);
+const result = computed(() => activeAnalysis.value?.result ?? null);
 const fields = computed(() => {
     if (!result.value?.fields) return [];
     return Object.entries(result.value.fields).map(([key, value]) => ({
@@ -86,6 +111,10 @@ const reservationFilterFlags = computed(() => {
         };
     });
 });
+const availabilityEndpoints = computed(() => result.value?.availability_endpoints ?? []);
+const availabilitySupported = computed(
+    () => result.value?.has_availability_endpoint ?? false
+);
 const showRawCredentials = ref(false);
 const canShowRawCredentials = computed(() =>
     credentials.value.some(
@@ -121,7 +150,7 @@ const polling = {
 };
 
 const shouldPoll = computed(() => {
-    const status = props.analysis?.status;
+    const status = activeAnalysis.value?.status;
     return status === 'queued' || status === 'processing';
 });
 
@@ -133,7 +162,7 @@ onMounted(() => {
 });
 
 watch(
-    () => props.analysis?.status,
+    () => activeAnalysis.value?.status,
     (status) => {
         const active = status === 'queued' || status === 'processing';
         if (!active && polling.interval) {
@@ -150,6 +179,39 @@ watch(
     }
 );
 
+watch(
+    () => hasBookingTab.value,
+    (hasBooking) => {
+        if (!hasBooking && activeTab.value === 'booking') {
+            activeTab.value = 'pms';
+        }
+    }
+);
+
+const bookingDefaultPrompt = computed(
+    () => bookingPromptVersions.value[0] ?? props.defaultPromptVersion
+);
+
+const syncFormDefaults = () => {
+    if (activeAnalysis.value) {
+        form.prompt_version = activeAnalysis.value.prompt_version;
+        form.model = activeAnalysis.value.model;
+        return;
+    }
+
+    form.prompt_version =
+        activeTab.value === 'booking'
+            ? bookingDefaultPrompt.value
+            : props.defaultPromptVersion;
+    form.model = props.defaultModel;
+};
+
+watch(
+    [() => activeTab.value, () => activeAnalysis.value?.id, () => bookingDefaultPrompt.value],
+    syncFormDefaults,
+    { immediate: true }
+);
+
 onBeforeUnmount(() => {
     if (polling.interval) {
         clearInterval(polling.interval);
@@ -157,7 +219,7 @@ onBeforeUnmount(() => {
 });
 
 const openTicketModal = () => {
-    if (!result.value || !props.analysis?.id) return;
+    if (!result.value || !activeAnalysis.value?.id) return;
     showTicketModal.value = true;
     ticketState.error = null;
     ticketState.success = null;
@@ -172,13 +234,13 @@ const closeTicketModal = () => {
 };
 
 const generateTicketDescription = async () => {
-    if (!props.analysis?.id) return;
+    if (!activeAnalysis.value?.id) return;
     ticketState.generating = true;
     ticketState.error = null;
 
     try {
         const response = await window.axios.post(
-            `/analyses/${props.analysis.id}/youtrack/description`,
+            `/analyses/${activeAnalysis.value.id}/youtrack/description`,
             {
                 summary: ticketForm.summary,
             }
@@ -193,14 +255,14 @@ const generateTicketDescription = async () => {
 };
 
 const createYouTrackTicket = async () => {
-    if (!props.analysis?.id) return;
+    if (!activeAnalysis.value?.id) return;
     ticketState.submitting = true;
     ticketState.error = null;
     ticketState.success = null;
 
     try {
         const response = await window.axios.post(
-            `/analyses/${props.analysis.id}/youtrack`,
+            `/analyses/${activeAnalysis.value.id}/youtrack`,
             {
                 summary: ticketForm.summary,
                 description: ticketForm.description,
@@ -208,10 +270,7 @@ const createYouTrackTicket = async () => {
             }
         );
         ticketIssue.value = response?.data ?? null;
-        const issueId = response?.data?.issue_idReadable || response?.data?.issue_id;
-        ticketState.success = issueId
-            ? `Created ${issueId}.`
-            : 'Ticket created.';
+        ticketState.success = response?.data?.message ?? 'Success';
     } catch (error) {
         ticketState.error =
             error?.response?.data?.message ?? 'Failed to create YouTrack ticket.';
@@ -243,15 +302,15 @@ const createYouTrackTicket = async () => {
                     Back to uploads
                 </Link>
                 <a
-                    v-if="analysis?.result"
-                    :href="`/analyses/${analysis.id}/download`"
+                    v-if="activeAnalysis?.result"
+                    :href="`/analyses/${activeAnalysis.id}/download`"
                     class="rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
                 >
                     Download JSON
                 </a>
                 <a
-                    v-if="analysis?.result"
-                    :href="`/analyses/${analysis.id}/download/pdf`"
+                    v-if="activeAnalysis?.result"
+                    :href="`/analyses/${activeAnalysis.id}/download/pdf`"
                     class="rounded-full border border-slate-200 px-4 py-2 text-xs font-semibold text-slate-700 hover:border-sky-400 hover:text-sky-700"
                 >
                     Download PDF
@@ -259,12 +318,36 @@ const createYouTrackTicket = async () => {
                 <button
                     type="button"
                     class="rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-600/30 hover:bg-sky-500"
-                    :disabled="!analysis?.result"
+                    :disabled="!activeAnalysis?.result"
                     @click="openTicketModal"
                 >
                     Create YouTrack ticket
                 </button>
             </div>
+        </div>
+
+        <div class="mb-6 flex flex-wrap items-center gap-2">
+            <button
+                type="button"
+                class="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em]"
+                :class="activeTab === 'pms'
+                    ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30'
+                    : 'border border-slate-200 text-slate-600 hover:border-sky-300 hover:text-sky-700'"
+                @click="activeTab = 'pms'"
+            >
+                PMS
+            </button>
+            <button
+                v-if="hasBookingTab"
+                type="button"
+                class="rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-[0.2em]"
+                :class="activeTab === 'booking'
+                    ? 'bg-sky-600 text-white shadow-lg shadow-sky-600/30'
+                    : 'border border-slate-200 text-slate-600 hover:border-sky-300 hover:text-sky-700'"
+                @click="activeTab = 'booking'"
+            >
+                Booking engine
+            </button>
         </div>
 
         <section
@@ -273,8 +356,8 @@ const createYouTrackTicket = async () => {
             <div class="flex flex-wrap items-center justify-between gap-4">
                 <div>
                     <h3 class="text-lg font-semibold text-slate-900">Analysis run</h3>
-                    <p v-if="analysis" class="text-xs text-slate-500">
-                        Prompt {{ analysis.prompt_version }} · {{ analysis.model }}
+                    <p v-if="activeAnalysis" class="text-xs text-slate-500">
+                        Prompt {{ activeAnalysis.prompt_version }} · {{ activeAnalysis.model }}
                     </p>
                 </div>
                 <div class="flex flex-wrap items-end gap-3">
@@ -285,7 +368,7 @@ const createYouTrackTicket = async () => {
                                 v-model="form.prompt_version"
                                 class="mt-2 w-36 rounded-full border border-slate-200 bg-white px-3 py-2 text-xs text-slate-700"
                             >
-                                <option v-for="version in promptVersions" :key="version" :value="version">
+                                <option v-for="version in activePromptVersions" :key="version" :value="version">
                                     {{ version }}
                                 </option>
                             </select>
@@ -299,7 +382,7 @@ const createYouTrackTicket = async () => {
                         </label>
                         <button
                             type="submit"
-                        class="rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-600/30"
+                            class="rounded-full bg-sky-600 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-sky-600/30"
                             :disabled="form.processing"
                         >
                             Re-run
@@ -314,24 +397,24 @@ const createYouTrackTicket = async () => {
                 </div>
             </div>
 
-            <div v-if="analysis" class="mt-6">
+            <div v-if="activeAnalysis" class="mt-6">
                 <div class="flex items-center justify-between text-xs text-slate-500">
-                    <span>Status: {{ analysis.status }}</span>
-                    <span>{{ analysis.progress }}%</span>
+                    <span>Status: {{ activeAnalysis.status }}</span>
+                    <span>{{ activeAnalysis.progress }}%</span>
                 </div>
                 <div class="mt-2 h-2 w-full rounded-full bg-slate-200">
                     <div
                         class="h-2 rounded-full bg-sky-500 transition-all"
-                        :style="{ width: `${analysis.progress}%` }"
+                        :style="{ width: `${activeAnalysis.progress}%` }"
                     ></div>
                 </div>
-                <p v-if="analysis.error_message" class="mt-2 text-xs text-rose-600">
-                    {{ analysis.error_message }}
+                <p v-if="activeAnalysis.error_message" class="mt-2 text-xs text-rose-600">
+                    {{ activeAnalysis.error_message }}
                 </p>
             </div>
         </section>
 
-        <section class="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
+        <section v-if="isPmsTab" class="mt-8 grid gap-6 lg:grid-cols-[1.2fr_0.8fr]">
             <div class="rounded-3xl border border-slate-900/10 bg-white/70 p-6 backdrop-blur">
                 <h3 class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
                     Field coverage
@@ -405,7 +488,7 @@ const createYouTrackTicket = async () => {
 
                 <div class="rounded-3xl border border-slate-900/10 bg-white/70 p-6 backdrop-blur">
                     <h3 class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
-                        Reservations
+                        {{ keyFiltersTitle }}
                     </h3>
                     <div v-if="result" class="mt-4 space-y-4">
                         <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
@@ -526,13 +609,60 @@ const createYouTrackTicket = async () => {
             </div>
         </section>
 
+        <section v-else class="mt-8 grid gap-6">
+            <div class="rounded-3xl border border-slate-900/10 bg-white/70 p-6 backdrop-blur">
+                <h3 class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
+                    Availability endpoint
+                </h3>
+                <div v-if="result" class="mt-4 space-y-4">
+                    <div class="flex items-center justify-between rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <p class="text-sm text-slate-700">Availability support</p>
+                        <span
+                            class="text-sm font-semibold"
+                            :class="availabilitySupported ? 'text-emerald-600' : 'text-rose-600'"
+                        >
+                            {{ availabilitySupported ? 'Yes' : 'No' }}
+                        </span>
+                    </div>
+                    <div class="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
+                            Endpoint path(s)
+                        </p>
+                        <p class="mt-2 text-sm text-slate-700">
+                            <span v-if="availabilityEndpoints.length">
+                                {{ availabilityEndpoints.join(', ') }}
+                            </span>
+                            <span v-else>Not listed in the docs.</span>
+                        </p>
+                    </div>
+                </div>
+                <p v-else class="mt-4 text-sm text-slate-500">
+                    Waiting on AI analysis.
+                </p>
+            </div>
+
+            <div class="rounded-3xl border border-slate-900/10 bg-white/70 p-6 backdrop-blur">
+                <h3 class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
+                    Notes
+                </h3>
+                <ul v-if="result?.notes?.length" class="mt-4 space-y-2 text-sm text-slate-600">
+                    <li v-for="note in result.notes" :key="note" class="rounded-2xl bg-white px-4 py-3">
+                        {{ note }}
+                    </li>
+                </ul>
+                <p v-else class="mt-4 text-sm text-slate-500">
+                    Notes will show up when the model provides context.
+                </p>
+            </div>
+        </section>
+
         <section class="mt-10 rounded-3xl border border-slate-900/10 bg-white/70 p-6 backdrop-blur">
             <h3 class="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
                 Analysis history
             </h3>
-            <div v-if="analyses.length" class="mt-4 grid gap-3">
+            <div v-if="analysesForTab.length" class="mt-4 grid gap-3">
                 <div
-                    v-for="entry in analyses"
+                    v-for="entry in analysesForTab"
                     :key="entry.id"
                     class="flex flex-wrap items-center justify-between gap-4 rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-600"
                 >
@@ -615,7 +745,7 @@ const createYouTrackTicket = async () => {
                                 type="checkbox"
                                 class="h-4 w-4 rounded border-slate-300 text-sky-600"
                             />
-                            Include PMS result in ticket
+                            Include analysis result in ticket
                         </label>
                         <button
                             type="button"
@@ -629,7 +759,7 @@ const createYouTrackTicket = async () => {
 
                     <div class="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                         <p class="text-xs font-semibold uppercase tracking-[0.2em] text-slate-500">
-                            PMS result
+                            Analysis result
                         </p>
                         <pre class="mt-3 max-h-64 overflow-auto rounded-xl bg-white p-4 text-xs text-slate-700">{{ pmsResultJson }}</pre>
                     </div>

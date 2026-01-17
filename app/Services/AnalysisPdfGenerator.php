@@ -39,117 +39,138 @@ class AnalysisPdfGenerator
         $lines[] = $this->labelLine('Status', (string) $analysis->status);
         $lines[] = $this->labelLine('Progress', (string) $analysis->progress.'%');
         $lines[] = '';
-        $lines[] = 'Capability snapshot';
-        $lines[] = '-------------------';
-        $lines[] = $this->labelLine(
-            'Get Reservations',
-            ($result['has_get_reservations_endpoint'] ?? false) ? 'Yes' : 'No'
-        );
-        $lines[] = $this->labelLine(
-            'Webhook support',
-            ($result['supports_webhooks'] ?? false) ? 'Yes' : 'No'
-        );
-        $credentialsAvailable = ($result['credentials_available'] ?? false) ? 'Yes' : 'No';
-        $lines[] = $this->labelLine('Credentials mentioned', $credentialsAvailable);
-        $credentialTypes = $result['credential_types'] ?? [];
-        if (is_array($credentialTypes) && $credentialTypes !== []) {
-            $lines[] = $this->labelLine('Credential types', implode(', ', $credentialTypes));
-        }
-        $lines[] = '';
-        $filtersTitle = 'Key filters';
-        $endpointLabel = $this->primaryEndpointLabel($result);
-        if ($endpointLabel !== '') {
-            $filtersTitle .= ' — '.$endpointLabel;
-        }
-        $lines[] = $filtersTitle;
-        $lines[] = str_repeat('-', strlen($filtersTitle));
-        $filters = $result['get_reservations_filters'] ?? [];
-        if (is_array($filters) && $filters !== []) {
-            $lines[] = $this->formatColumns(
-                ['Filter', 'Status', 'Confidence', 'Doc filter name(s)'],
-                [20, 10, 12, null]
+        $isBookingEngine = $this->isBookingEnginePrompt($analysis->prompt_version);
+
+        if ($isBookingEngine) {
+            $lines[] = 'Availability endpoint';
+            $lines[] = '---------------------';
+            $lines[] = $this->labelLine(
+                'Availability support',
+                ($result['has_availability_endpoint'] ?? false) ? 'Yes' : 'No'
             );
-            $lines[] = str_repeat('-', 72);
-            $filterLabels = [
-                'check_in_date' => 'check_in_date',
-                'check_out_date' => 'check_out_date',
-                'status' => 'status',
-            ];
-            foreach ($filterLabels as $key => $label) {
-                $filter = $filters[$key] ?? [];
-                $available = ($filter['available'] ?? false) ? 'available' : 'missing';
-                $confidence = isset($filter['confidence'])
-                    ? (int) round(((float) $filter['confidence']) * 100)
-                    : 0;
-                $sources = $filter['source_fields'] ?? [];
-                $sourceLabel = '-';
-                if (is_array($sources) && $sources !== []) {
-                    $sourceLabel = implode(', ', $sources);
-                }
+            $availabilityEndpoints = $result['availability_endpoints'] ?? [];
+            if (is_array($availabilityEndpoints) && $availabilityEndpoints !== []) {
+                $lines[] = $this->labelLine(
+                    'Endpoint path(s)',
+                    implode(', ', $availabilityEndpoints)
+                );
+            } else {
+                $lines[] = $this->labelLine('Endpoint path(s)', 'Not listed');
+            }
+            $lines[] = '';
+        } else {
+            $lines[] = 'Capability snapshot';
+            $lines[] = '-------------------';
+            $lines[] = $this->labelLine(
+                'Get Reservations',
+                ($result['has_get_reservations_endpoint'] ?? false) ? 'Yes' : 'No'
+            );
+            $lines[] = $this->labelLine(
+                'Webhook support',
+                ($result['supports_webhooks'] ?? false) ? 'Yes' : 'No'
+            );
+            $credentialsAvailable = ($result['credentials_available'] ?? false) ? 'Yes' : 'No';
+            $lines[] = $this->labelLine('Credentials mentioned', $credentialsAvailable);
+            $credentialTypes = $result['credential_types'] ?? [];
+            if (is_array($credentialTypes) && $credentialTypes !== []) {
+                $lines[] = $this->labelLine('Credential types', implode(', ', $credentialTypes));
+            }
+            $lines[] = '';
+            $filtersTitle = 'Key filters';
+            $endpointLabel = $this->primaryEndpointLabel($result);
+            if ($endpointLabel !== '') {
+                $filtersTitle .= ' — '.$endpointLabel;
+            }
+            $lines[] = $filtersTitle;
+            $lines[] = str_repeat('-', strlen($filtersTitle));
+            $filters = $result['get_reservations_filters'] ?? [];
+            if (is_array($filters) && $filters !== []) {
                 $lines[] = $this->formatColumns(
-                    [$label, $available, $confidence.'%', $sourceLabel],
+                    ['Filter', 'Status', 'Confidence', 'Doc filter name(s)'],
                     [20, 10, 12, null]
                 );
+                $lines[] = str_repeat('-', 72);
+                $filterLabels = [
+                    'check_in_date' => 'check_in_date',
+                    'check_out_date' => 'check_out_date',
+                    'status' => 'status',
+                ];
+                foreach ($filterLabels as $key => $label) {
+                    $filter = $filters[$key] ?? [];
+                    $available = ($filter['available'] ?? false) ? 'available' : 'missing';
+                    $confidence = isset($filter['confidence'])
+                        ? (int) round(((float) $filter['confidence']) * 100)
+                        : 0;
+                    $sources = $filter['source_fields'] ?? [];
+                    $sourceLabel = '-';
+                    if (is_array($sources) && $sources !== []) {
+                        $sourceLabel = implode(', ', $sources);
+                    }
+                    $lines[] = $this->formatColumns(
+                        [$label, $available, $confidence.'%', $sourceLabel],
+                        [20, 10, 12, null]
+                    );
+                }
+            } else {
+                $lines[] = 'No filters detected.';
             }
-        } else {
-            $lines[] = 'No filters detected.';
-        }
-        $availableFilters = $result['get_reservations_available_filters'] ?? [];
-        if (is_array($availableFilters) && $availableFilters !== []) {
+            $availableFilters = $result['get_reservations_available_filters'] ?? [];
+            if (is_array($availableFilters) && $availableFilters !== []) {
+                $lines[] = '';
+                $lines[] = 'All filters: '.implode(', ', $availableFilters);
+            }
             $lines[] = '';
-            $lines[] = 'All filters: '.implode(', ', $availableFilters);
-        }
-        $lines[] = '';
-        $lines[] = 'Field coverage';
-        $lines[] = '--------------';
+            $lines[] = 'Field coverage';
+            $lines[] = '--------------';
 
-        $fields = $result['fields'] ?? [];
-        if (is_array($fields) && $fields !== []) {
-            $lines[] = $this->formatColumns(
-                ['Field', 'Status', 'Confidence', 'Source fields'],
-                [22, 10, 12, null]
-            );
-            $lines[] = str_repeat('-', 72);
-            $availableCount = 0;
-            foreach ($fields as $key => $field) {
-                if (!is_array($field)) {
-                    continue;
-                }
-
-                $available = ($field['available'] ?? false) ? 'available' : 'missing';
-                $confidence = isset($field['confidence'])
-                    ? (int) round(((float) $field['confidence']) * 100)
-                    : 0;
-                if ($available === 'available') {
-                    $availableCount++;
-                }
-                $sources = $field['source_fields'] ?? [];
-                $sourceLabel = '-';
-                if (is_array($sources) && $sources !== []) {
-                    $sourceLabel = implode(', ', $sources);
-                }
+            $fields = $result['fields'] ?? [];
+            if (is_array($fields) && $fields !== []) {
                 $lines[] = $this->formatColumns(
-                    [$key, $available, $confidence.'%', $sourceLabel],
+                    ['Field', 'Status', 'Confidence', 'Source fields'],
                     [22, 10, 12, null]
                 );
+                $lines[] = str_repeat('-', 72);
+                $availableCount = 0;
+                foreach ($fields as $key => $field) {
+                    if (!is_array($field)) {
+                        continue;
+                    }
+
+                    $available = ($field['available'] ?? false) ? 'available' : 'missing';
+                    $confidence = isset($field['confidence'])
+                        ? (int) round(((float) $field['confidence']) * 100)
+                        : 0;
+                    if ($available === 'available') {
+                        $availableCount++;
+                    }
+                    $sources = $field['source_fields'] ?? [];
+                    $sourceLabel = '-';
+                    if (is_array($sources) && $sources !== []) {
+                        $sourceLabel = implode(', ', $sources);
+                    }
+                    $lines[] = $this->formatColumns(
+                        [$key, $available, $confidence.'%', $sourceLabel],
+                        [22, 10, 12, null]
+                    );
+                }
+                $lines[] = '';
+                $lines[] = $this->labelLine('Available fields', $availableCount.' / '.count($fields));
+            } else {
+                $lines[] = '- No fields detected.';
             }
+
             $lines[] = '';
-            $lines[] = $this->labelLine('Available fields', $availableCount.' / '.count($fields));
-        } else {
-            $lines[] = '- No fields detected.';
-        }
+            $lines[] = 'Reservation statuses';
+            $lines[] = '--------------------';
+            $statuses = $result['reservation_statuses'] ?? [];
+            if (is_array($statuses) && $statuses !== []) {
+                $lines[] = implode(', ', $statuses);
+            } else {
+                $lines[] = 'None detected.';
+            }
 
-        $lines[] = '';
-        $lines[] = 'Reservation statuses';
-        $lines[] = '--------------------';
-        $statuses = $result['reservation_statuses'] ?? [];
-        if (is_array($statuses) && $statuses !== []) {
-            $lines[] = implode(', ', $statuses);
-        } else {
-            $lines[] = 'None detected.';
+            $lines[] = '';
         }
-
-        $lines[] = '';
         $lines[] = 'Credentials detected';
         $lines[] = '--------------------';
         $credentials = $result['credentials'] ?? [];
@@ -211,6 +232,11 @@ class AnalysisPdfGenerator
         }
 
         return '';
+    }
+
+    private function isBookingEnginePrompt(string $promptVersion): bool
+    {
+        return str_starts_with($promptVersion, 'booking_engine');
     }
 
     /**

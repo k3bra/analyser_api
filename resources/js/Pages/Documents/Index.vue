@@ -56,11 +56,10 @@ const deleteDocument = (doc) => {
                     Upload &amp; Analyze
                 </p>
                 <h2 class="mt-3 text-3xl font-semibold tracking-tight text-slate-900">
-                    Drop a PMS API PDF and get a structured field map.
+                    DocuSnitch practices PDF-Driven Development.
                 </h2>
                 <p class="mt-3 text-sm text-slate-600">
-                    The analyzer extracts semantic meaning from tables, sample payloads,
-                    and endpoint descriptions to infer reservation capabilities.
+DocuSnitch reads your API documentation and tells you what it’s actually saying  endpoints, fields, webhooks, and all the lies in between.
                 </p>
 
                 <form class="mt-6 grid gap-4" @submit.prevent="submit">
